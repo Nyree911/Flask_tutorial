@@ -1,8 +1,9 @@
-from flask import Flask, render_template, flash
+from flask import Flask, render_template, flash, request
 from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField
 from wtforms.validators import DataRequired
 from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
 from datetime import datetime
 
 
@@ -13,12 +14,14 @@ app.config['SECRET_KEY'] = "qwerty"
 
 # initialize DB
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 
 # Create Model
 class Users (db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name =db.Column(db.String(200), nullable=False)
     email =db.Column(db.String(120), nullable=False, unique=True)
+    favorite_color = db.Column(db.String(120))
     date_added =db.Column(db.DateTime, default=datetime.utcnow)
 
     def __repr__(self):
@@ -28,6 +31,7 @@ class Users (db.Model):
 class UserForm(FlaskForm):
     name = StringField("Name", validators=[DataRequired()])
     email = StringField("Email", validators=[DataRequired()])
+    favorite_color = StringField("Favorite Color")
     submit = SubmitField("Submit")
 
 # Create a class
@@ -66,12 +70,14 @@ def add_user():
         user = Users.query.filter_by(email=form.email.data).first()
         if user is None:
             user = Users(name=form.name.data, 
-                         email = form.email.data)
+                         email = form.email.data,
+                         favorite_color = form.favorite_color.data)
             db.session.add(user)
             db.session.commit()
         name = form.name.data
         form.name.data=''
         form.email.data=''
+        form.favorite_color.data=''
         flash('User added successfully!')
     our_users = Users.query.order_by(Users.date_added)
     return render_template('add_user.html', form=form, 
@@ -93,6 +99,29 @@ def name():
     return render_template('name.html',
                            name=name,
                            form=form)
+
+# Update db record
+
+@app.route('/update/<int:id>', methods=['GET', 'POST'])
+def update (id):
+    form = UserForm()
+    name_to_update = Users.query.get_or_404(id) 
+    if request.method == 'POST':
+        name_to_update.name = request.form['name']
+        name_to_update.email = request.form['email']
+        name_to_update.favorite_color = request.form['favorite_color']
+        try:
+            db.session.commit()
+            flash("User Updated successfully")
+            return render_template ("update.html", form=form,
+                            name_to_update = name_to_update)
+        except:
+            flash("Error! Looks like there was a problem, try again")
+            return render_template ("update.html", form=form,
+                            name_to_update = name_to_update)
+    else:
+        return render_template ("update.html", form=form,
+                            name_to_update = name_to_update)
 
 
 if __name__ == "__main__":
