@@ -1,4 +1,4 @@
-from flask import Flask, render_template, flash, request
+from flask import Flask, render_template, flash, request, redirect, url_for
 from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField, PasswordField, BooleanField, ValidationError
 from wtforms.validators import DataRequired, EqualTo, Length
@@ -63,6 +63,11 @@ class NamerForm(FlaskForm):
     name = StringField("What's Your Name", validators=[DataRequired()])
     submit = SubmitField("Submit")
 
+class PasswordForm(FlaskForm):
+    email = StringField("What's Your Email", validators=[DataRequired()])
+    password_hash = PasswordField("What's Your Password", validators=[DataRequired()])
+    submit = SubmitField("Submit")
+
 
 @app.route('/')
 def index():
@@ -117,8 +122,6 @@ def add_user():
                            our_users=our_users)
 
 # Create name page
-
-
 @app.route('/name', methods=['GET', 'POST'])
 def name():
     name = None
@@ -130,6 +133,45 @@ def name():
         flash("Form submitted successfully!!!")
     return render_template('name.html',
                            name=name,
+                           form=form)
+
+# Create test pw page
+@app.route('/test', methods=['GET', 'POST'])
+def test():
+    email = None
+    password = None
+    pw_to_check = None
+    passed = None
+    form = PasswordForm()
+    
+    # validate form
+    if form.validate_on_submit():
+        try:
+            email = form.email.data
+            password = form.password_hash.data
+            # clear a form
+            form.email.data = ''
+            form.password_hash.data = ''
+
+            pw_to_check = Users.query.filter_by(email=email).first()
+            passed = check_password_hash(pw_to_check.password_hash, password)
+        except:
+            flash ('There is no such email, please return and try again!')
+            return render_template('test.html',
+                           email=email,
+                           password=password,
+                           pw_to_check=pw_to_check,
+                           passed=passed,
+                           form=form)
+
+            
+    
+
+    return render_template('test.html',
+                           email=email,
+                           password=password,
+                           pw_to_check=pw_to_check,
+                           passed=passed,
                            form=form)
 
 # Update db record
